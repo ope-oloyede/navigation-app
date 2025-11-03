@@ -8,7 +8,7 @@
 
 .box {
   max-width: 100%; /* Tailwind max-w-6xl = 1152px */
-  border: 2px solid #ef4444;
+  /* border: 2px solid #ef4444; */
   margin-left: auto;
   margin-right: auto;
 }
@@ -16,7 +16,7 @@
 /* Card containers */
 .bg-white {
   background-color: #ffffff;
-  border: 2px solid #ef4444;
+  /* border: 2px solid #ef4444; */
 }
 
 .rounded-xl {
