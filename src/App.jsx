@@ -1,119 +1,155 @@
 import React, { useState } from 'react';
-import { Home, Navigation } from 'lucide-react';
-import './App.css'
+import { Home, MapPin, Navigation, Locate } from 'lucide-react';
+import './app.css';
 
-const IndoorNavigationMVP = () => {
-  const [start, setStart] = useState('');
+const locations = {
+  entrance: { label: 'Entrance', x: 300, y: 50 },
+  living: { label: 'Living Room', x: 150, y: 200 },
+  dining: { label: 'Dining Room', x: 350, y: 200 },
+  kitchen: { label: 'Kitchen', x: 470, y: 170 },
+  serviceArea: { label: 'Service Area', x: 520, y: 200 },
+  storage: { label: 'Storage', x: 520, y: 330 },
+  pantry: { label: 'Pantry', x: 570, y: 370 }
+};
+
+const graph = {
+  entrance: [{ to: 'living', dist: 15 }, { to: 'dining', dist: 15 }],
+  living: [{ to: 'entrance', dist: 15 }, { to: 'dining', dist: 8 }],
+  dining: [{ to: 'entrance', dist: 15 }, { to: 'living', dist: 8 }, { to: 'kitchen', dist: 8 }],
+  kitchen: [{ to: 'dining', dist: 8 }, { to: 'serviceArea', dist: 5 }],
+  serviceArea: [{ to: 'kitchen', dist: 5 }, { to: 'storage', dist: 12 }],
+  storage: [{ to: 'serviceArea', dist: 12 }, { to: 'pantry', dist: 5 }],
+  pantry: [{ to: 'storage', dist: 5 }]
+};
+
+export default function NavigationSystem() {
+  const [currentLocation, setCurrentLocation] = useState(null);
   const [destination, setDestination] = useState('');
+  const [route, setRoute] = useState({ path: [], distance: 0 });
+  const [isDetecting, setIsDetecting] = useState(false);
 
-  // Define your house layout
-  const locations = {
-    'entrance': { x: 300, y: 50, label: 'Entrance/Verandah' },
-    'living': { x: 150, y: 200, label: 'Living Room' },
-    'dining': { x: 350, y: 200, label: 'Dining Room' },
-    'kitchen_door': { x: 470, y: 170, label: 'Kitchen Door' },
-    'kitchen': { x: 520, y: 200, label: 'Kitchen' },
-    'pantry_door': { x: 520, y: 330, label: 'Pantry Door' },
-    'pantry': { x: 570, y: 370, label: 'Pantry' },
-  };
+  const dijkstra = (start, end) => {
+    const distances = {};
+    const previous = {};
+    const unvisited = new Set(Object.keys(locations));
+    
+    Object.keys(locations).forEach(node => {
+      distances[node] = Infinity;
+      previous[node] = null;
+    });
+    distances[start] = 0;
 
-  // Pre-calculated routes
-  const routes = {
-    'entrance-living': { path: ['entrance', 'living'], distance: 150 },
-    'entrance-dining': { path: ['entrance', 'dining'], distance: 150 },
-    'entrance-kitchen': { path: ['entrance', 'dining', 'kitchen_door', 'kitchen'], distance: 280 },
-    'entrance-pantry': { path: ['entrance', 'dining', 'kitchen_door', 'kitchen', 'pantry_door', 'pantry'], distance: 450 },
-    'living-dining': { path: ['living', 'dining'], distance: 80 },
-    'living-kitchen': { path: ['living', 'dining', 'kitchen_door', 'kitchen'], distance: 210 },
-    'living-pantry': { path: ['living', 'dining', 'kitchen_door', 'kitchen', 'pantry_door', 'pantry'], distance: 380 },
-    'dining-kitchen': { path: ['dining', 'kitchen_door', 'kitchen'], distance: 130 },
-    'dining-pantry': { path: ['dining', 'kitchen_door', 'kitchen', 'pantry_door', 'pantry'], distance: 300 },
-    'kitchen-pantry': { path: ['kitchen', 'pantry_door', 'pantry'], distance: 170 },
-  };
+    while (unvisited.size > 0) {
+      let current = null;
+      let minDist = Infinity;
+      
+      unvisited.forEach(node => {
+        if (distances[node] < minDist) {
+          minDist = distances[node];
+          current = node;
+        }
+      });
 
-  const getRoute = () => {
-    if (!start || !destination || start === destination) {
-      return { path: [], distance: 0 };
+      if (current === null || current === end) break;
+      unvisited.delete(current);
+
+      graph[current]?.forEach(({ to, dist }) => {
+        if (unvisited.has(to)) {
+          const newDist = distances[current] + dist;
+          if (newDist < distances[to]) {
+            distances[to] = newDist;
+            previous[to] = current;
+          }
+        }
+      });
     }
 
-    const key1 = `${start}-${destination}`;
-    const key2 = `${destination}-${start}`;
-    
-    if (routes[key1]) return routes[key1];
-    if (routes[key2]) return { path: [...routes[key2].path].reverse(), distance: routes[key2].distance };
-    
-    return { path: [], distance: 0 };
+    const path = [];
+    let curr = end;
+    while (curr) {
+      path.unshift(curr);
+      curr = previous[curr];
+    }
+
+    return { path: path[0] === start ? path : [], distance: distances[end] };
   };
 
-  const route = getRoute();
+  const detectLocation = () => {
+    setIsDetecting(true);
+    setTimeout(() => {
+      const randomLoc = Object.keys(locations)[Math.floor(Math.random() * Object.keys(locations).length)];
+      setCurrentLocation(randomLoc);
+      setIsDetecting(false);
+    }, 1000);
+  };
+
+  React.useEffect(() => {
+    if (currentLocation && destination && destination !== currentLocation) {
+      setRoute(dijkstra(currentLocation, destination));
+    } else {
+      setRoute({ path: [], distance: 0 });
+    }
+  }, [currentLocation, destination]);
 
   return (
-    <div className="body">
-      <div className="box">
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-          <div className="flex items-center gap-3 mb-6">
-            <Home className="text-indigo-600" size={32} />
-            <div>
-              <h1 className="text-3xl font-bold text-gray-800">Your House Navigation System</h1>
-              <p className="text-sm text-gray-600">Ground Floor - Main Areas</p>
+    <div className="container">
+      <div className="max-width-container">
+        <div className="card">
+          <div className="header">
+            <Home className="header-icon" size={32} />
+            <div className="header-content">
+              <h1 className="title">Your House Navigation System</h1>
+              <p className="subtitle">Ground Floor - Main Areas</p>
             </div>
+            <button onClick={detectLocation} disabled={isDetecting} className="detect-button">
+              <Locate size={20} className={isDetecting ? 'spin' : ''} />
+              {isDetecting ? 'Detecting...' : 'Update Location'}
+            </button>
           </div>
           
-          <div className="grid md:grid-cols-2 gap-4 mb-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Starting Point
-              </label>
-              <select
-                value={start}
-                onChange={(e) => setStart(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-              >
-                <option value="">Select start location</option>
-                {Object.keys(locations).map(loc => (
-                  <option key={loc} value={loc}>{locations[loc].label}</option>
-                ))}
-              </select>
+          {currentLocation && (
+            <div className="location-box">
+              <div className="location-header">
+                <MapPin className="location-header-icon" size={20} />
+                <h3 className="location-header-text">Your Current Location</h3>
+              </div>
+              <p className="location-current">{locations[currentLocation].label}</p>
+              <p className="location-instruction">Select a destination below to get directions.</p>
             </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Destination
-              </label>
-              <select
-                value={destination}
-                onChange={(e) => setDestination(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-              >
-                <option value="">Select destination</option>
-                {Object.keys(locations).map(loc => (
-                  <option key={loc} value={loc}>{locations[loc].label}</option>
-                ))}
-              </select>
-            </div>
+          )}
+
+          <div className="select-container">
+            <label className="label">🎯 Where Do You Want To Go?</label>
+            <select value={destination} onChange={(e) => setDestination(e.target.value)} className="select" disabled={!currentLocation}>
+              <option value="">Select destination</option>
+              {Object.keys(locations).map(loc => (
+                <option key={loc} value={loc} disabled={loc === currentLocation}>
+                  {locations[loc].label} {loc === currentLocation ? '(You are here)' : ''}
+                </option>
+              ))}
+            </select>
           </div>
 
           {route.path.length > 0 && (
-            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Navigation className="text-indigo-600" size={20} />
-                <h3 className="font-semibold text-indigo-900">Route Found</h3>
+            <div className="route-box">
+              <div className="route-header">
+                <Navigation className="route-header-icon" size={20} />
+                <h3 className="route-header-text">Route Found</h3>
               </div>
-              <p className="text-gray-700 mb-1">
-                <span className="font-medium">Distance:</span> {route.distance} units (~{Math.round(route.distance/10)} feet)
+              <p className="route-info">
+                <span className="route-label">Distance:</span> {route.distance} units (~{Math.round(route.distance/10)} feet)
               </p>
-              <p className="text-gray-700">
-                <span className="font-medium">Path:</span> {route.path.map(p => locations[p].label).join(' → ')}
+              <p className="route-info">
+                <span className="route-label">Path:</span> {route.path.map(p => locations[p].label).join(' → ')}
               </p>
             </div>
           )}
         </div>
 
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Floor Plan</h2>
-          <div className="border-2 border-gray-200 rounded-lg overflow-hidden bg-gray-50">
-            <svg width="650" height="450" className="w-full h-auto">
-              {/* Room outlines */}
+        <div className="card">
+          <h2 className="section-title">Floor Plan</h2>
+          <div className="floor-plan-container">
+            <svg width="650" height="450" className="floor-plan-svg">
               <rect x="80" y="120" width="140" height="160" fill="#dcfce7" stroke="#16a34a" strokeWidth="2" opacity="0.3"/>
               <text x="150" y="190" textAnchor="middle" fontSize="12" fill="#15803d" fontWeight="bold">Living Room</text>
               
@@ -129,59 +165,59 @@ const IndoorNavigationMVP = () => {
               <rect x="270" y="20" width="60" height="40" fill="#dbeafe" stroke="#2563eb" strokeWidth="2" opacity="0.3"/>
               <text x="300" y="45" textAnchor="middle" fontSize="10" fill="#1e40af" fontWeight="bold">Entrance</text>
               
-              {/* Connection lines */}
               <line x1="300" y1="50" x2="150" y2="200" stroke="#e5e7eb" strokeWidth="3"/>
-              <line x1="300" y1="50" x2="350" y2="200" stroke="#e5e7eb" strokeWidth="3"/>
-              <line x1="150" y1="200" x2="350" y2="200" stroke="#e5e7eb" strokeWidth="3"/>
-              <line x1="350" y1="200" x2="470" y2="170" stroke="#e5e7eb" strokeWidth="3"/>
-              <line x1="470" y1="170" x2="520" y2="200" stroke="#e5e7eb" strokeWidth="3"/>
-              <line x1="520" y1="200" x2="520" y2="330" stroke="#e5e7eb" strokeWidth="3"/>
-              <line x1="520" y1="330" x2="570" y2="370" stroke="#e5e7eb" strokeWidth="3"/>
+              <rect x="210" y="115" width="50" height="20" fill="white" stroke="#94a3b8" strokeWidth="1" rx="4"/>
+              <text x="235" y="129" textAnchor="middle" fontSize="11" fill="#475569" fontWeight="bold">15 ft</text>
               
-              {/* Route path */}
+              <line x1="300" y1="50" x2="350" y2="200" stroke="#e5e7eb" strokeWidth="3"/>
+              <rect x="315" y="115" width="50" height="20" fill="white" stroke="#94a3b8" strokeWidth="1" rx="4"/>
+              <text x="340" y="129" textAnchor="middle" fontSize="11" fill="#475569" fontWeight="bold">15 ft</text>
+              
+              <line x1="150" y1="200" x2="350" y2="200" stroke="#e5e7eb" strokeWidth="3"/>
+              <rect x="225" y="190" width="50" height="20" fill="white" stroke="#94a3b8" strokeWidth="1" rx="4"/>
+              <text x="250" y="204" textAnchor="middle" fontSize="11" fill="#475569" fontWeight="bold">8 ft</text>
+              
+              <line x1="350" y1="200" x2="470" y2="170" stroke="#e5e7eb" strokeWidth="3"/>
+              <rect x="390" y="175" width="50" height="20" fill="white" stroke="#94a3b8" strokeWidth="1" rx="4"/>
+              <text x="415" y="189" textAnchor="middle" fontSize="11" fill="#475569" fontWeight="bold">8 ft</text>
+              
+              <line x1="470" y1="170" x2="520" y2="200" stroke="#e5e7eb" strokeWidth="3"/>
+              <rect x="480" y="175" width="50" height="20" fill="white" stroke="#94a3b8" strokeWidth="1" rx="4"/>
+              <text x="505" y="189" textAnchor="middle" fontSize="11" fill="#475569" fontWeight="bold">5 ft</text>
+              
+              <line x1="520" y1="200" x2="520" y2="330" stroke="#e5e7eb" strokeWidth="3"/>
+              <rect x="530" y="255" width="50" height="20" fill="white" stroke="#94a3b8" strokeWidth="1" rx="4"/>
+              <text x="555" y="269" textAnchor="middle" fontSize="11" fill="#475569" fontWeight="bold">12 ft</text>
+              
+              <line x1="520" y1="330" x2="570" y2="370" stroke="#e5e7eb" strokeWidth="3"/>
+              <rect x="535" y="340" width="50" height="20" fill="white" stroke="#94a3b8" strokeWidth="1" rx="4"/>
+              <text x="560" y="354" textAnchor="middle" fontSize="11" fill="#475569" fontWeight="bold">5 ft</text>
+              
               {route.path.length > 1 && route.path.map((loc, i) => {
                 if (i === route.path.length - 1) return null;
                 const from = locations[loc];
                 const to = locations[route.path[i + 1]];
                 return (
-                  <line
-                    key={`path-${i}`}
-                    x1={from.x}
-                    y1={from.y}
-                    x2={to.x}
-                    y2={to.y}
-                    stroke="#3b82f6"
-                    strokeWidth="5"
-                    strokeLinecap="round"
-                  />
+                  <line key={`path-${i}`} x1={from.x} y1={from.y} x2={to.x} y2={to.y} stroke="#3b82f6" strokeWidth="5" strokeLinecap="round" />
                 );
               })}
               
-              {/* Location nodes */}
               {Object.keys(locations).map(key => {
                 const loc = locations[key];
-                const isStart = key === start;
-                const isEnd = key === destination;
+                const isCurrent = key === currentLocation;
+                const isDestination = key === destination;
                 const isOnPath = route.path.includes(key);
                 
                 return (
                   <g key={key}>
-                    <circle
-                      cx={loc.x}
-                      cy={loc.y}
-                      r="12"
-                      fill={isStart ? '#10b981' : isEnd ? '#ef4444' : isOnPath ? '#3b82f6' : '#6366f1'}
-                      stroke="white"
-                      strokeWidth="3"
-                    />
-                    <text
-                      x={loc.x}
-                      y={loc.y + 25}
-                      textAnchor="middle"
-                      fontSize="11"
-                      fill="#1f2937"
-                      fontWeight="500"
-                    >
+                    <circle cx={loc.x} cy={loc.y} r="12" fill={isCurrent ? '#10b981' : isDestination ? '#ef4444' : isOnPath ? '#3b82f6' : '#6366f1'} stroke="white" strokeWidth="3" />
+                    {isCurrent && (
+                      <circle cx={loc.x} cy={loc.y} r="18" fill="none" stroke="#10b981" strokeWidth="2" opacity="0.5">
+                        <animate attributeName="r" from="12" to="24" dur="1.5s" repeatCount="indefinite" />
+                        <animate attributeName="opacity" from="0.8" to="0" dur="1.5s" repeatCount="indefinite" />
+                      </circle>
+                    )}
+                    <text x={loc.x} y={loc.y + 25} textAnchor="middle" fontSize="11" fill="#1f2937" fontWeight="500">
                       {loc.label}
                     </text>
                   </g>
@@ -190,31 +226,36 @@ const IndoorNavigationMVP = () => {
             </svg>
           </div>
           
-          <div className="mt-4 flex gap-4 text-sm">
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded-full bg-green-500"></div>
-              <span>Start</span>
+          <div className="legend">
+            <div className="legend-item">
+              <div className="legend-dot legend-dot-green"></div>
+              <span>Your Location</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded-full bg-red-500"></div>
+            <div className="legend-item">
+              <div className="legend-dot legend-dot-red"></div>
               <span>Destination</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded-full bg-blue-500"></div>
+            <div className="legend-item">
+              <div className="legend-dot legend-dot-blue"></div>
               <span>On Route</span>
             </div>
           </div>
         </div>
 
-        <div className="mt-6 bg-green-50 border border-green-200 rounded-lg p-4">
-          <h3 className="font-semibold text-green-900 mb-2">✅ Phase 1 Complete!</h3>
-          <p className="text-sm text-green-800">
-            Navigation working for: Entrance, Living Room, Dining Room, Kitchen, and Pantry. Add hallway and bedrooms when ready!
+        <div className="info-box">
+          <h3 className="info-title">✅ Phase 1 Complete!</h3>
+          <p className="info-text">
+            Navigation working for: Entrance, Living Room, Dining Room, Kitchen, and Pantry.
           </p>
+          <div className="info-subbox">
+            <h4 className="info-subtitle">🔧 How Location Detection Works:</h4>
+            <p className="info-detail">
+              <strong>For MVP/House:</strong> Simulated location (click "Update Location" to change)<br/>
+              <strong>For Real Mall:</strong> Would use WiFi triangulation, Bluetooth beacons, or phone sensors for precise indoor positioning
+            </p>
+          </div>
         </div>
       </div>
     </div>
   );
-};
-
-export default IndoorNavigationMVP;
+}
