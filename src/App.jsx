@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Home, MapPin, Navigation, Locate } from 'lucide-react';
-import './app.css';
+import './App.css';
 
 const locations = {
   entrance: { label: 'Entrance', x: 300, y: 50 },
